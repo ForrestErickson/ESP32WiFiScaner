@@ -7,7 +7,8 @@
 // --- SEMANTIC VERSIONING ---
 #define VERSION_MAJOR 0
 #define VERSION_MINOR 0
-#define VERSION_PATCH 6 // Unique MAC SoftAP Identifier with Company Name.
+#define VERSION_PATCH 8 // Added ElegantOTA Over-The-Air Update Engine
+
 
 
 #define LED_BUILTIN 2

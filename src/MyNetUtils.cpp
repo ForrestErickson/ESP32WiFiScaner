@@ -1,13 +1,12 @@
 #include "MyNetUtils.h"
+#include <ElegantOTA.h>
 
 NetworkState currentNetState = STATE_IDLE;
 unsigned long connectionStartTime = 0;
 const unsigned long CONNECTION_TIMEOUT = 10000; 
 
-// Initialize the web server instance on port 80
 AsyncWebServer server(80);
 
-// Raw HTML string stored in PROGMEM (Flash memory) to keep RAM consumption low
 const char index_html[] PROGMEM = R"rawliteral(
 <!DOCTYPE html>
 <html>
@@ -83,6 +82,8 @@ void checkNetworkStatus() {
       Serial.print("IP Address allocated: ");
       Serial.println(WiFi.localIP());
       Serial.println("========================================\n");
+      
+      startWebServer();
     } 
     else if (millis() - connectionStartTime > CONNECTION_TIMEOUT) {
       Serial.println("\n>>> Connection Timeout! Falling back to SoftAP Mode... <<<");
@@ -106,7 +107,6 @@ void startSoftAP() {
     Serial.print("IP Address: "); Serial.println(WiFi.softAPIP());
     Serial.println("========================================");
     
-    // Fire up the asynchronous HTTP routes now that the interface is alive
     startWebServer();
   } else {
     Serial.println("Error: SoftAP Hotspot initialization failed!");
@@ -114,14 +114,11 @@ void startSoftAP() {
 }
 
 void startWebServer() {
-  // Route 1: Serve main HTML page
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
     request->send(200, "text/html", index_html);
   });
 
-  // Route 2: Perform a local WiFi Scan and spit out clickable items
   server.on("/scan", HTTP_GET, [](AsyncWebServerRequest *request){
-    // Perform a synchronous scan here since the web request expects an instant return array
     int n = WiFi.scanNetworks(false, false, false, 150); 
     String response = "";
     if (n <= 0) {
@@ -138,28 +135,23 @@ void startWebServer() {
     request->send(200, "text/html", response);
   });
 
-  // Route 3: Extract form data, write it to Flash, and reset the device
   server.on("/save", HTTP_POST, [](AsyncWebServerRequest *request){
     WifiConfig newConfig;
-    
     if (request->hasParam("ssid", true)) {
       newConfig.ssid = request->getParam("ssid", true)->value();
     }
     if (request->hasParam("password", true)) {
       newConfig.password = request->getParam("password", true)->value();
     }
-
-    request->send(200, "text/html", "<h3>Settings Saved! ESP32 is now restarting to attempt a connection...</h3>");
-    
-    // Allow the server a split-second to safely send the HTML response before saving and resetting
+    request->send(200, "text/html", "<h3>Settings Saved! ESP32 is now restarting...</h3>");
     delay(500); 
     saveConfig(newConfig);
     ESP.restart();
   });
 
-  // Begin listening on port 80
+  ElegantOTA.begin(&server);
   server.begin();
-  Serial.println("Asynchronous Web Server successfully started on port 80.");
+  Serial.println("Asynchronous Web Server with ElegantOTA active on port 80.");
 }
 
 String getEncryptionName(wifi_auth_mode_t authMode) {

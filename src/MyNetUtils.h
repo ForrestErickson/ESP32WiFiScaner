@@ -16,8 +16,8 @@ enum NetworkState {
   STATE_AP_MODE
 };
 
+// Global visibility allocations
 extern NetworkState currentNetState;
-// Declare the async web server on port 80
 extern AsyncWebServer server;
 
 // Network function declarations
@@ -27,4 +27,4 @@ void startSoftAP();
 void startWebServer();
 String getEncryptionName(wifi_auth_mode_t authMode);
 
-#endif
+#endif // MY_NET_UTILS_H
