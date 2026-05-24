@@ -1,11 +1,33 @@
 # Summary
 I am practicing using VSCode and Plaeformio.  
 I am practicing using an AI, Google to write code.  
-There were itterations required and the AI some times made code that would not compile.  
+There were iterations required and the AI some times made code that would not compile.  
 
-## Nornmal opperation 
+## Normal operation 
 Some serial monitor outputs
 
+```
+rst:0x1 (POWERON_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:2
+load:0x3fff0030,len:1184
+load:0x40078000,len:13232
+load:0x40080400,len:3028
+entry 0x400805e4
+==== ESP23WiFiScaner, Ver: 0.0.3 ====
+Built: May 24 2026 14:39:01
+========================================
+
+Setup done. Ready.
+Button pressed! Starting async scan...
+4 networks found:
+1: Erickson [Ch: 6] (-39 dBm) - WPA2
+2: VRX [Ch: 6] (-64 dBm) - WPA2
+3: NETGEAR48 [Ch: 10] (-91 dBm) - WPA2
+4: JimandJess1990 [Ch: 1] (-92 dBm) - WPA2/WPA3
+
+```
 
 
 ## History
