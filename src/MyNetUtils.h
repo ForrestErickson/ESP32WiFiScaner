@@ -3,16 +3,26 @@
 
 #include <Arduino.h>
 #include "WiFi.h"
+#include "ConfigManager.h"
 
-// Struct structure ready to store up to 4 access points later
-struct WifiCredential {
-  String ssid;
-  String password;
+// --- BRANDING CONFIGURATION ---
+#define COMPANY_NAME "Amused_Scientist"
+
+// Defines the operational states of our network stack
+enum NetworkState {
+  STATE_IDLE,
+  STATE_CONNECTING,
+  STATE_CONNECTED,
+  STATE_AP_MODE
 };
 
+// Global variable tracking the real-time network state
+extern NetworkState currentNetState;
+
 // Network function declarations
-void startScan(unsigned long &scanStartTime, bool &isScanning, unsigned long &ledOnTime, unsigned long &ledOffTime);
-void checkScanStatus(unsigned long scanStartTime, bool &isScanning, unsigned long &ledOnTime, unsigned long &ledOffTime, volatile bool &buttonPressed);
+void initNetwork(const WifiConfig &config);
+void checkNetworkStatus();
+void startSoftAP();
 String getEncryptionName(wifi_auth_mode_t authMode);
 
 #endif
