@@ -3,7 +3,7 @@
 
 NetworkState currentNetState = STATE_IDLE;
 unsigned long connectionStartTime = 0;
-const unsigned long CONNECTION_TIMEOUT = 10000; 
+const unsigned long CONNECTION_TIMEOUT = 15000; 
 
 AsyncWebServer server(80);
 
@@ -64,10 +64,12 @@ void initNetwork(const WifiConfig &config) {
     return;
   }
 
-  Serial.print("Attempting to connect to SSID: ");
+  Serial.println(">>> Initializing Station Mode connection... <<<");
+  Serial.print("Target Saved SSID: ");
   Serial.println(config.ssid);
   
   WiFi.mode(WIFI_STA);
+  delay(500); 
   WiFi.begin(config.ssid.c_str(), config.password.c_str());
   
   currentNetState = STATE_CONNECTING;
@@ -78,7 +80,9 @@ void checkNetworkStatus() {
   if (currentNetState == STATE_CONNECTING) {
     if (WiFi.status() == WL_CONNECTED) {
       currentNetState = STATE_CONNECTED;
-      Serial.println("\n>>> SUCCESS: Connected to home network! <<<");
+      Serial.println("\n>>> SUCCESS: Connected as a Station! <<<");
+      Serial.print("SSID Connected: ");
+      Serial.println(WiFi.SSID());
       Serial.print("IP Address allocated: ");
       Serial.println(WiFi.localIP());
       Serial.println("========================================\n");
@@ -118,19 +122,28 @@ void startWebServer() {
     request->send(200, "text/html", index_html);
   });
 
+  // Safe Asynchronous Scan Endpoint
   server.on("/scan", HTTP_GET, [](AsyncWebServerRequest *request){
-    int n = WiFi.scanNetworks(false, false, false, 150); 
-    String response = "";
-    if (n <= 0) {
-      response = "<p style='text-align:center;color:red;'>No networks found.</p>";
-    } else {
-      for (int i = 0; i < n; ++i) {
-        String ssid = WiFi.SSID(i);
-        int rssi = WiFi.RSSI(i);
-        response += "<div class='network-item' onclick=\"selectSSID('" + ssid + "')\">";
-        response += ssid + " (" + String(rssi) + " dBm)</div>";
+    // Kick off a safe background scan that doesn't block the core
+    int n = WiFi.scanComplete();
+    
+    if (n == WIFI_SCAN_FAILED || n == WIFI_SCAN_RUNNING) {
+      // If no scan is running, trigger one asynchronously
+      if (n == WIFI_SCAN_FAILED) {
+        WiFi.scanNetworks(true); 
       }
+      request->send(200, "text/plain", "<p style='text-align:center;color:#666;'>Scanning in progress... Click again in 2 seconds.</p>");
+      return;
     }
+
+    String response = "";
+    for (int i = 0; i < n; ++i) {
+      String ssid = WiFi.SSID(i);
+      int rssi = WiFi.RSSI(i);
+      response += "<div class='network-item' onclick=\"selectSSID('" + ssid + "')\">";
+      response += ssid + " (" + String(rssi) + " dBm)</div>";
+    }
+    
     WiFi.scanDelete();
     request->send(200, "text/html", response);
   });
@@ -143,7 +156,15 @@ void startWebServer() {
     if (request->hasParam("password", true)) {
       newConfig.password = request->getParam("password", true)->value();
     }
+
+    Serial.println("\n============================= Web Portal Form Event =============================");
+    Serial.print("Web UI Event: SSID selected -> '");
+    Serial.print(newConfig.ssid);
+    Serial.println("'");
+    Serial.println("================================================================================");
+
     request->send(200, "text/html", "<h3>Settings Saved! ESP32 is now restarting...</h3>");
+    
     delay(500); 
     saveConfig(newConfig);
     ESP.restart();

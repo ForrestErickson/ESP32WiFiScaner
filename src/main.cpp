@@ -7,7 +7,8 @@
 // --- SEMANTIC VERSIONING ---
 #define VERSION_MAJOR 0
 #define VERSION_MINOR 0
-#define VERSION_PATCH 8 // Added ElegantOTA Over-The-Air Update Engine
+#define VERSION_PATCH 10 // Removed blocking scan calls to prevent task watchdog
+
 
 
 
