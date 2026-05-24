@@ -12,14 +12,16 @@ unsigned long ledOffTime = 900;
 
 // Asynchronous scan state tracking
 bool isScanning = false;
-unsigned long scanStartTime = 0; // Tracks exactly when the button kicked off the scan
+unsigned long scanStartTime = 0; 
 
-// Volatile flag for the button interrupt
+// Volatile variables for the button interrupt and debounce
 volatile bool buttonPressed = false;
+volatile unsigned long lastInterruptTime = 0; 
 
 // Function declarations
 void startScan();
 void checkScanStatus();
+String getEncryptionName(wifi_auth_mode_t authMode);
 void IRAM_ATTR handleButtonPress();
 
 void setup() {
@@ -80,7 +82,6 @@ void startScan() {
   isScanning = true;
   scanStartTime = millis(); 
 
-  // Initiate background scan
   WiFi.scanNetworks(true); 
 }
 
@@ -88,7 +89,6 @@ void startScan() {
 void checkScanStatus() {
   int n = WiFi.scanComplete(); 
   
-  // Case 1: Scan successfully found 0 or more networks!
   if (n >= 0) { 
     Serial.print(n);
     Serial.println(" networks found:");
@@ -96,31 +96,27 @@ void checkScanStatus() {
       Serial.print(i + 1);
       Serial.print(": ");
       Serial.print(WiFi.SSID(i));
-      Serial.print(" (");
+      Serial.print(" [Ch: ");
+      Serial.print(WiFi.channel(i)); // Print Channel Number
+      Serial.print("] (");
       Serial.print(WiFi.RSSI(i));
-      Serial.println(")");
+      Serial.print(" dBm) - ");
+      Serial.println(getEncryptionName(WiFi.encryptionType(i))); // Print Encryption Type
     }
     Serial.println();
 
     WiFi.scanDelete(); 
     
-    // Reset back to standard slow-blink settings
     ledOnTime = 100;
     ledOffTime = 900;
     isScanning = false;
     buttonPressed = false; 
   } 
-  // Case 2: Scan is returning an ongoing status code (-1 or transient -2)
   else {
-    // A scan shouldn't take longer than 10 seconds. 
-    // If it exceeds this, the hardware radio has encountered a genuine error.
     if (millis() - scanStartTime > 10000) {
       Serial.println("Actual Scan Timeout/Failure! Resetting interface.");
       WiFi.scanDelete();
-      
-      // Re-initialize the WiFi stack to clear any deep hardware hang-ups
       WiFi.disconnect();
-      
       ledOnTime = 100;
       ledOffTime = 900;
       isScanning = false;
@@ -128,7 +124,27 @@ void checkScanStatus() {
   }
 }
 
-// Interrupt Service Routine for the button
+// --- HELPER FUNCTION TO TRANSLATE ENCRYPTION TYPES ---
+String getEncryptionName(wifi_auth_mode_t authMode) {
+  switch (authMode) {
+    case WIFI_AUTH_OPEN:            return "Open";
+    case WIFI_AUTH_WEP:             return "WEP";
+    case WIFI_AUTH_WPA_PSK:         return "WPA";
+    case WIFI_AUTH_WPA2_PSK:        return "WPA2";
+    case WIFI_AUTH_WPA_WPA2_PSK:    return "WPA/WPA2";
+    case WIFI_AUTH_WPA2_ENTERPRISE: return "WPA2-Enterprise";
+    case WIFI_AUTH_WPA3_PSK:        return "WPA3";
+    case WIFI_AUTH_WPA2_WPA3_PSK:   return "WPA2/WPA3";
+    default:                        return "Unknown";
+  }
+}
+
+// --- DEBOUNCED INTERRUPT SERVICE ROUTINE ---
 void IRAM_ATTR handleButtonPress() {
-  buttonPressed = true;
+  unsigned long interruptTime = millis();
+  
+  if (interruptTime - lastInterruptTime > 250) {
+    buttonPressed = true;
+  }
+  lastInterruptTime = interruptTime;
 }
