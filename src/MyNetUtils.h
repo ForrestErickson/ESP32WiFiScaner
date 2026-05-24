@@ -3,12 +3,12 @@
 
 #include <Arduino.h>
 #include "WiFi.h"
+#include <ESPAsyncWebServer.h>
 #include "ConfigManager.h"
 
 // --- BRANDING CONFIGURATION ---
 #define COMPANY_NAME "Amused_Scientist"
 
-// Defines the operational states of our network stack
 enum NetworkState {
   STATE_IDLE,
   STATE_CONNECTING,
@@ -16,13 +16,15 @@ enum NetworkState {
   STATE_AP_MODE
 };
 
-// Global variable tracking the real-time network state
 extern NetworkState currentNetState;
+// Declare the async web server on port 80
+extern AsyncWebServer server;
 
 // Network function declarations
 void initNetwork(const WifiConfig &config);
 void checkNetworkStatus();
 void startSoftAP();
+void startWebServer();
 String getEncryptionName(wifi_auth_mode_t authMode);
 
 #endif
