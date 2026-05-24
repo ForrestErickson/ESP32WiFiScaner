@@ -6,7 +6,7 @@
 // --- SEMANTIC VERSIONING ---
 #define VERSION_MAJOR 0
 #define VERSION_MINOR 0
-#define VERSION_PATCH 1
+#define VERSION_PATCH 2 // Bumped version for serial glitch fix
 
 #define LED_BUILTIN 2
 #define SCAN_BUTTON GPIO_NUM_35 
@@ -50,6 +50,7 @@ void setup() {
   Serial.print(" "); Serial.print(__TIME__);
   Serial.println("");
   Serial.println("========================================");
+  Serial.println("");
 
   pinMode(SCAN_BUTTON, INPUT_PULLUP); 
   attachInterrupt(digitalPinToInterrupt(SCAN_BUTTON), handleButtonPress, FALLING);
@@ -97,6 +98,10 @@ void loop() {
 void startScan() {
   Serial.println("Button pressed! Starting async scan...");
   
+  // Safe 5ms delay allows the serial chip to finish transmitting 
+  // the text block before the Wi-Fi radio task takes over resources.
+  delay(5); 
+
   ledOnTime = 50;
   ledOffTime = 450;
   isScanning = true;
