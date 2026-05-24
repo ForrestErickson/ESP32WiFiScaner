@@ -2,7 +2,8 @@
 #include "WiFi.h"
 
 #define LED_BUILTIN 2
-#define SCAN_BUTTON GPIO_NUM_35
+// Changed from GPIO_NUM_0 to GPIO_NUM_35
+#define SCAN_BUTTON GPIO_NUM_35 
 
 // Variables for the non-blocking LED timer
 unsigned long lastLedUpdate = 0;
@@ -11,10 +12,9 @@ bool ledState = false;
 // Volatile flag for the button interrupt
 volatile bool buttonPressed = false;
 
-// Interrupt Service Routine for the button
-void IRAM_ATTR handleButtonPress() {
-  buttonPressed = true;
-}
+// Function declarations
+void scanNetworks();
+void IRAM_ATTR handleButtonPress();
 
 void setup() {
   pinMode(LED_BUILTIN, OUTPUT);
@@ -23,6 +23,7 @@ void setup() {
   Serial.begin(115200);
   while (!Serial) { ; }
 
+  // Changed to use the new SCAN_BUTTON define
   pinMode(SCAN_BUTTON, INPUT_PULLUP); 
   attachInterrupt(digitalPinToInterrupt(SCAN_BUTTON), handleButtonPress, FALLING);
 
@@ -38,14 +39,12 @@ void loop() {
   unsigned long currentMillis = millis();
   
   if (ledState == true) {
-    // If LED is ON, wait 100ms to turn it OFF
     if (currentMillis - lastLedUpdate >= 100) {
       ledState = false;
       digitalWrite(LED_BUILTIN, LOW);
       lastLedUpdate = currentMillis;
     }
   } else {
-    // If LED is OFF, wait 900ms to turn it ON
     if (currentMillis - lastLedUpdate >= 900) {
       ledState = true;
       digitalWrite(LED_BUILTIN, HIGH);
@@ -53,34 +52,45 @@ void loop() {
     }
   }
 
-  // --- BUTTON & WI-FI SCAN ROUTINE ---
+  // --- BUTTON CHECK ROUTINE ---
   if (buttonPressed) {
     buttonPressed = false; 
 
-    Serial.println("Button pressed! Starting scan...");
-    
-    int n = WiFi.scanNetworks();
-    if (n == 0) {
-      Serial.println("No networks found.");
-    } else {
-      Serial.print(n);
-      Serial.println(" networks found:");
-      for (int i = 0; i < n; ++i) {
-        Serial.print(i + 1);
-        Serial.print(": ");
-        Serial.print(WiFi.SSID(i));
-        Serial.print(" (");
-        Serial.print(WiFi.RSSI(i));
-        Serial.println(")");
-      }
-    }
-    Serial.println();
+    // Call the Wi-Fi scan function
+    scanNetworks(); 
     
     // Cooldown to avoid mechanical button bounce
     delay(500); 
     buttonPressed = false;
     
-    // Reset LED timer after the blocking Wi-Fi scan so the rhythm stays clean
+    // Reset LED timer after the blocking Wi-Fi scan
     lastLedUpdate = millis(); 
   }
+}
+
+// --- WI-FI SCAN FUNCTION ---
+void scanNetworks() {
+  Serial.println("Button pressed! Starting scan...");
+  
+  int n = WiFi.scanNetworks();
+  if (n == 0) {
+    Serial.println("No networks found.");
+  } else {
+    Serial.print(n);
+    Serial.println(" networks found:");
+    for (int i = 0; i < n; ++i) {
+      Serial.print(i + 1);
+      Serial.print(": ");
+      Serial.print(WiFi.SSID(i));
+      Serial.print(" (");
+      Serial.print(WiFi.RSSI(i));
+      Serial.println(")");
+    }
+  }
+  Serial.println();
+}
+
+// Interrupt Service Routine for the button
+void IRAM_ATTR handleButtonPress() {
+  buttonPressed = true;
 }
