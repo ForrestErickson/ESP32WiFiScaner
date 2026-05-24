@@ -1,6 +1,13 @@
 #include <Arduino.h>
 #include "WiFi.h"
 
+#define FILE_NAME "ESP23WiFiScaner, "
+
+// --- SEMANTIC VERSIONING ---
+#define VERSION_MAJOR 0
+#define VERSION_MINOR 0
+#define VERSION_PATCH 1
+
 #define LED_BUILTIN 2
 #define SCAN_BUTTON GPIO_NUM_35 
 
@@ -30,6 +37,19 @@ void setup() {
   
   Serial.begin(115200);
   while (!Serial) { ; }
+
+  // --- SERIAL SPLASH MESSAGE ---
+  Serial.print("==== ");
+  Serial.print(FILE_NAME);
+  Serial.print("Ver: "); 
+  Serial.print(VERSION_MAJOR); Serial.print(".");
+  Serial.print(VERSION_MINOR); Serial.print(".");
+  Serial.print(VERSION_PATCH);
+  Serial.println(" ====");
+  Serial.print("Built: "); Serial.print(__DATE__);
+  Serial.print(" "); Serial.print(__TIME__);
+  Serial.println("");
+  Serial.println("========================================");
 
   pinMode(SCAN_BUTTON, INPUT_PULLUP); 
   attachInterrupt(digitalPinToInterrupt(SCAN_BUTTON), handleButtonPress, FALLING);
@@ -97,11 +117,11 @@ void checkScanStatus() {
       Serial.print(": ");
       Serial.print(WiFi.SSID(i));
       Serial.print(" [Ch: ");
-      Serial.print(WiFi.channel(i)); // Print Channel Number
+      Serial.print(WiFi.channel(i)); 
       Serial.print("] (");
       Serial.print(WiFi.RSSI(i));
       Serial.print(" dBm) - ");
-      Serial.println(getEncryptionName(WiFi.encryptionType(i))); // Print Encryption Type
+      Serial.println(getEncryptionName(WiFi.encryptionType(i))); 
     }
     Serial.println();
 
