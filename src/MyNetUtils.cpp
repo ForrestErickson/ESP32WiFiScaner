@@ -1,5 +1,6 @@
 #include "MyNetUtils.h"
 #include <ElegantOTA.h>
+#include "DisplayManager.h" // Includes the OLED drawing commands
 
 NetworkState currentNetState = STATE_IDLE;
 unsigned long connectionStartTime = 0;
@@ -68,11 +69,14 @@ void initNetwork(const WifiConfig &config) {
   Serial.print("Target Saved SSID: ");
   Serial.println(config.ssid);
   
+  // Clear the screen and show connection attempt details on the OLED
+  drawNetworkStatus("STATION", config.ssid, "0.0.0.0", "Connecting...");
+
   WiFi.mode(WIFI_STA);
   delay(500); 
   WiFi.begin(config.ssid.c_str(), config.password.c_str());
   
-  currentNetState = STATE_CONNECTING;
+   currentNetState = STATE_CONNECTING;
   connectionStartTime = millis();
 }
 
@@ -87,10 +91,18 @@ void checkNetworkStatus() {
       Serial.println(WiFi.localIP());
       Serial.println("========================================\n");
       
+      // Update screen to reflect active, verified local network configurations
+      drawNetworkStatus("STATION", WiFi.SSID(), WiFi.localIP().toString(), "Connected!");
+
       startWebServer();
     } 
     else if (millis() - connectionStartTime > CONNECTION_TIMEOUT) {
       Serial.println("\n>>> Connection Timeout! Falling back to SoftAP Mode... <<<");
+      
+      // Show failure warning on screen before spawning local broadcast node
+      drawNetworkStatus("FALLBACK", "None", "0.0.0.0", "Timeout Error!");
+      delay(1000); 
+
       WiFi.disconnect();
       startSoftAP();
     }
@@ -111,6 +123,9 @@ void startSoftAP() {
     Serial.print("IP Address: "); Serial.println(WiFi.softAPIP());
     Serial.println("========================================");
     
+    // Display the specific hotspot setup info on your physical hardware screen
+    drawNetworkStatus("ACCESS POINT", uniqueSSID, WiFi.softAPIP().toString(), "Portal Active");
+
     startWebServer();
   } else {
     Serial.println("Error: SoftAP Hotspot initialization failed!");
@@ -122,13 +137,10 @@ void startWebServer() {
     request->send(200, "text/html", index_html);
   });
 
-  // Safe Asynchronous Scan Endpoint
   server.on("/scan", HTTP_GET, [](AsyncWebServerRequest *request){
-    // Kick off a safe background scan that doesn't block the core
     int n = WiFi.scanComplete();
     
     if (n == WIFI_SCAN_FAILED || n == WIFI_SCAN_RUNNING) {
-      // If no scan is running, trigger one asynchronously
       if (n == WIFI_SCAN_FAILED) {
         WiFi.scanNetworks(true); 
       }

@@ -3,35 +3,27 @@
 #include "Splash.h"
 #include "MyNetUtils.h"
 #include "ConfigManager.h"
+#include "DisplayManager.h" // Include the new display engine
 
 // --- SEMANTIC VERSIONING ---
 #define VERSION_MAJOR 0
 #define VERSION_MINOR 0
-#define VERSION_PATCH 10 // Removed blocking scan calls to prevent task watchdog
-
-
-
+#define VERSION_PATCH 11 // Upgraded for Adafruit SSD1306 OLED integration
 
 #define LED_BUILTIN 2
 #define SCAN_BUTTON GPIO_NUM_35 
 
-// Variables for the non-blocking LED timer
 unsigned long lastLedUpdate = 0;
 bool ledState = false;
 unsigned long ledOnTime = 100;   
 unsigned long ledOffTime = 900;  
 
-// Volatile variables for the button interrupt and debounce
 volatile bool buttonPressed = false;
 volatile unsigned long lastInterruptTime = 0; 
-
-// State flag to safely schedule a factory reset from outside the ISR thread
 bool processFactoryReset = false;
 
-// Runtime variable holding loaded flash credentials in RAM
 WifiConfig currentCredentials;
 
-// ISR Declaration
 void IRAM_ATTR handleButtonPress();
 
 void setup() {
@@ -41,35 +33,36 @@ void setup() {
   Serial.begin(115200);
   while (!Serial) { ; }
 
-  // Prints updated 0.0.5 modular boot metadata
   printSplash(VERSION_MAJOR, VERSION_MINOR, VERSION_PATCH);
 
-  // Initialize LittleFS storage partition
+  // Initialize the OLED screen hardware receiver instantly on boot
+  if (initDisplay()) {
+    String verStr = String(VERSION_MAJOR) + "." + String(VERSION_MINOR) + "." + String(VERSION_PATCH);
+    showBootSplash(verStr);
+    delay(2000); // Let the boot splash linger for 2 seconds
+  }
+
   if (initStorage()) {
     loadConfig(currentCredentials);
   }
 
-  // Set up physical hardware override button on GPIO 35
   pinMode(SCAN_BUTTON, INPUT_PULLUP); 
   attachInterrupt(digitalPinToInterrupt(SCAN_BUTTON), handleButtonPress, FALLING);
 
-  // Route state machine to either connect to Wi-Fi or spin up the SoftAP hotspot
   initNetwork(currentCredentials);
 }
 
 void loop() {
-  // --- NON-BLOCKING DYNAMIC LED CADENCE SELECTOR ---
   unsigned long currentMillis = millis();
   
   if (currentNetState == STATE_CONNECTED) {
-    ledOnTime = 1000; ledOffTime = 0;   // Solid ON: Connected to local internet router
+    ledOnTime = 1000; ledOffTime = 0;   
   } else if (currentNetState == STATE_CONNECTING) {
-    ledOnTime = 100;  ledOffTime = 100; // Fast Flash: Searching/authenticating with AP
+    ledOnTime = 100;  ledOffTime = 100; 
   } else if (currentNetState == STATE_AP_MODE) {
-    ledOnTime = 500;  ledOffTime = 500; // Steady Breathing: Hosting hotspot web page
+    ledOnTime = 500;  ledOffTime = 500; 
   }
 
-  // Non-blocking blink actuator engine
   if (ledOnTime > 0 && ledOffTime > 0) {
     if (ledState == true) {
       if (currentMillis - lastLedUpdate >= ledOnTime) {
@@ -88,28 +81,27 @@ void loop() {
     digitalWrite(LED_BUILTIN, HIGH);
   }
 
-  // --- BACKGROUND STATE TRACKING POLLER ---
   checkNetworkStatus();
 
-  // --- SAFE INTERRUPT TRIGGER CHECKER ---
   if (buttonPressed) {
     buttonPressed = false;
-    processFactoryReset = true; // Safely defer execution out of execution bottlenecks
+    processFactoryReset = true; 
   }
 
-  // --- SAFE STORAGE RESET WORKFLOW ---
   if (processFactoryReset) {
     processFactoryReset = false;
-    delay(10); // Clear remaining TX buffers completely
+    delay(10); 
 
+    // Update screen to inform user of wipe action before dropping connection
+    drawNetworkStatus("FACTORY RESET", "Wiping...", "0.0.0.0", "Restarting...");
+    
     Serial.println("\nButton override triggered! Erasing flash configuration and restarting chip...");
     clearConfig();
-    delay(500);    // Give the user console time to finish rendering the output string
-    ESP.restart(); // Software resets the CPU core down to base boot instructions
+    delay(500);    
+    ESP.restart(); 
   }
 }
 
-// Interrupt Service Routine for the button
 void IRAM_ATTR handleButtonPress() {
   unsigned long interruptTime = millis();
   if (interruptTime - lastInterruptTime > 250) {
