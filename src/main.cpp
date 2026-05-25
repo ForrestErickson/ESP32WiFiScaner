@@ -55,7 +55,7 @@ void loop() {
   unsigned long currentMillis = millis();
   
   if (currentNetState == STATE_CONNECTED) {
-    ledOnTime = 1000; ledOffTime = 0;   
+    ledOnTime = 100;  ledOffTime = 900; 
   } else if (currentNetState == STATE_CONNECTING) {
     ledOnTime = 100;  ledOffTime = 100; 
   } else if (currentNetState == STATE_AP_MODE) {
