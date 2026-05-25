@@ -5,8 +5,8 @@ There were iterations required and the AI some times made code that would not co
 
 ## Future Feature List
 - [ ] Set LEDs 1-6 as output and make low at setup()
-- [ ] Make a WiFi Manager system for saving multiple SSID / PW.  
-- [ ] The device will connect to the strongest SSID as a STA. If no WiFi access point found device will become softAP.  
+- [ ] Make a WiFi Manager system for managing multiple SSID / PW, displaying, editing and saving.  
+- [ ] The device will connect to the strongest SSID as a STA. If not succsfull it will try the others. If no WiFi access point found device will become softAP.  
 - [ ] There will be a way to edit and selectively enable / disable saved SSID PW pares without erasing. There will be a way to erase all SSID / PW with double user input for safety.  
 - [ ] There will be display on the OLED of status of Wi-Fi events to give user visibility as to the device progress or lack there of.  
 - [ ] There will be indication on the LED_BUILTIN of the WiFi Mode / status.  During normal operation as STA the LED_BUILDIN will be on for 100mS and off for 900 mS. For sofAP the LED_BUILTING will be on for 500mS and off for 500 mS.  
