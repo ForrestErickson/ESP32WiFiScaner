@@ -4,11 +4,13 @@ I am practicing using an AI, Google to write code.
 There were iterations required and the AI some times made code that would not compile.  
 
 ## Future Feature List
-Make a WiFi Manager system for saving multiple SSID / PW
-The device will connect to the strongest SSID as a STA. If no WiFi access point found device will become softAP.
-There will be a way to edit and selectively enable / disable saved SSID PW pares with out erasing. There will be a way to erase all SSID / PW with double user input for safty.
-There will be display on the OLED of status of WiFi events to give user visibilty as to the device progress or lack there of.
-There will be indication on the LED_BUILTIN of the WiFi Mode / status.  During normal opperation as STA the LED_BUILDIN will be on for 100mS and off for 900 mS. For sofAP the LED_BUILDIN will be on for 500mS and off for 500 mS.  
+- [ ] Make a WiFi Manager system for saving multiple SSID / PW.  
+- [ ] The device will connect to the strongest SSID as a STA. If no WiFi access point found device will become softAP.  
+- [ ] There will be a way to edit and selectively enable / disable saved SSID PW pares without erasing. There will be a way to erase all SSID / PW with double user input for safety.  
+- [ ] There will be display on the OLED of status of Wi-Fi events to give user visibility as to the device progress or lack there of.  
+- [ ] There will be indication on the LED_BUILTIN of the WiFi Mode / status.  During normal operation as STA the LED_BUILDIN will be on for 100mS and off for 900 mS. For sofAP the LED_BUILTING will be on for 500mS and off for 500 mS.  
+- [ ] If during entry of a SSID / PW the connection fails the device should try to fall back to other stored SSID / PW. The SoftAP is a last resort. 
+
 
 ## Claud AI summary as of V0.0.12
 [Issue #6](https://github.com/ForrestErickson/ESP32WiFiScaner/issues/6) Claud analysis and Description of V0.0.12 code  
