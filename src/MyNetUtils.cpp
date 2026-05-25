@@ -8,6 +8,124 @@ const unsigned long CONNECTION_TIMEOUT = 15000;
 
 AsyncWebServer server(80);
 
+static WifiConfig g_bootConfig;
+static int g_candidateOrder[MAX_WIFI_PROFILES];
+static int g_candidateCount = 0;
+static int g_candidateCursor = 0;
+static int g_attemptNumber = 0;
+
+static void resetAttemptState() {
+  g_candidateCount = 0;
+  g_candidateCursor = 0;
+  g_attemptNumber = 0;
+  for (int i = 0; i < MAX_WIFI_PROFILES; i++) {
+    g_candidateOrder[i] = -1;
+  }
+}
+
+static void buildCandidateOrder(const WifiConfig &config) {
+  int slotRssi[MAX_WIFI_PROFILES];
+  bool slotHasSsid[MAX_WIFI_PROFILES];
+  bool slotSelected[MAX_WIFI_PROFILES];
+
+  for (int i = 0; i < MAX_WIFI_PROFILES; i++) {
+    slotRssi[i] = -1000;
+    slotHasSsid[i] = (config.profiles[i].ssid != "");
+    slotSelected[i] = false;
+  }
+
+  WiFi.mode(WIFI_STA);
+  delay(100);
+  int n = WiFi.scanNetworks(false, false, false, 300);
+
+  if (n > 0) {
+    for (int i = 0; i < n; ++i) {
+      String scannedSSID = WiFi.SSID(i);
+      int scannedRSSI = WiFi.RSSI(i);
+
+      for (int j = 0; j < MAX_WIFI_PROFILES; j++) {
+        if (slotHasSsid[j] && config.profiles[j].ssid == scannedSSID) {
+          if (scannedRSSI > slotRssi[j]) {
+            slotRssi[j] = scannedRSSI;
+          }
+        }
+      }
+    }
+  }
+  WiFi.scanDelete();
+
+  // Add visible profiles first by strongest RSSI.
+  for (int pick = 0; pick < MAX_WIFI_PROFILES; pick++) {
+    int bestSlot = -1;
+    int bestRssi = -1000;
+    for (int j = 0; j < MAX_WIFI_PROFILES; j++) {
+      if (slotHasSsid[j] && !slotSelected[j] && slotRssi[j] > bestRssi) {
+        bestRssi = slotRssi[j];
+        bestSlot = j;
+      }
+    }
+
+    if (bestSlot >= 0 && bestRssi > -1000) {
+      g_candidateOrder[g_candidateCount++] = bestSlot;
+      slotSelected[bestSlot] = true;
+    }
+  }
+
+  // Then add non-visible saved profiles by slot order.
+  for (int j = 0; j < MAX_WIFI_PROFILES; j++) {
+    if (slotHasSsid[j] && !slotSelected[j]) {
+      g_candidateOrder[g_candidateCount++] = j;
+      slotSelected[j] = true;
+    }
+  }
+
+  Serial.print("[ROAM] Candidate list built: ");
+  Serial.print(g_candidateCount);
+  Serial.println(" profiles");
+}
+
+static bool hasNextCandidate() {
+  return g_candidateCursor < g_candidateCount;
+}
+
+static bool startNextProfileAttempt() {
+  while (hasNextCandidate()) {
+    int slot = g_candidateOrder[g_candidateCursor++];
+    if (slot < 0 || slot >= MAX_WIFI_PROFILES) {
+      continue;
+    }
+
+    String targetSSID = g_bootConfig.profiles[slot].ssid;
+    String targetPass = g_bootConfig.profiles[slot].password;
+
+    if (targetSSID == "") {
+      continue;
+    }
+
+    g_attemptNumber++;
+
+    Serial.print("[ROAM] Attempt ");
+    Serial.print(g_attemptNumber);
+    Serial.print("/");
+    Serial.print(g_candidateCount);
+    Serial.print(" -> SSID: ");
+    Serial.println(targetSSID);
+
+    drawNetworkStatus("STATION_INIT", targetSSID, "0.0.0.0",
+                      "Attempt " + String(g_attemptNumber) + "/" + String(g_candidateCount));
+
+    WiFi.mode(WIFI_STA);
+    delay(500);
+    WiFi.begin(targetSSID.c_str(), targetPass.c_str());
+
+    currentNetState = STATE_CONNECTING;
+    connectionStartTime = millis();
+    return true;
+  }
+
+  return false;
+}
+
 const char index_html[] PROGMEM = R"rawliteral(
 <!DOCTYPE html>
 <html>
@@ -76,53 +194,20 @@ void initNetwork(const WifiConfig &config) {
   Serial.println(">>> Scanning environment for stored profiles... <<<");
   drawNetworkStatus("ROAMING", "All Stored", "0.0.0.0", "Scanning Matrix...");
 
-  WiFi.mode(WIFI_STA);
-  delay(100);
-  int n = WiFi.scanNetworks(false, false, false, 300);
-  
-  int bestProfileIndex = -1;
-  int strongestRSSI = -200; 
+  g_bootConfig = config;
+  resetAttemptState();
+  buildCandidateOrder(g_bootConfig);
 
-  for (int i = 0; i < n; ++i) {
-    String scannedSSID = WiFi.SSID(i);
-    int scannedRSSI = WiFi.RSSI(i);
-
-    for (int j = 0; j < MAX_WIFI_PROFILES; j++) {
-      if (config.profiles[j].ssid == scannedSSID) {
-        if (scannedRSSI > strongestRSSI) {
-          strongestRSSI = scannedRSSI;
-          bestProfileIndex = j;
-        }
-      }
-    }
-  }
-  WiFi.scanDelete();
-
-  if (bestProfileIndex == -1) {
-    Serial.println("Stored SSIDs are not currently visible. Defaulting to first active profile slot...");
-    for (int j = 0; j < MAX_WIFI_PROFILES; j++) {
-      if (config.profiles[j].ssid != "") {
-        bestProfileIndex = j;
-        break;
-      }
-    }
+  if (g_candidateCount == 0) {
+    Serial.println("[ROAM] No valid candidate profiles. Booting to SoftAP mode...");
+    startSoftAP();
+    return;
   }
 
-  String targetSSID = config.profiles[bestProfileIndex].ssid;
-  String targetPass = config.profiles[bestProfileIndex].password;
-
-  Serial.print(">>> Connecting to Strongest Target Profile: ");
-  Serial.print(targetSSID);
-  Serial.print(" ("); Serial.print(strongestRSSI == -200 ? "Offline" : String(strongestRSSI) + " dBm");
-  Serial.println(") <<<");
-  
-  drawNetworkStatus("STATION_INIT", targetSSID, "0.0.0.0", "Handshaking...");
-
-  delay(500); 
-  WiFi.begin(targetSSID.c_str(), targetPass.c_str());
-  
-  currentNetState = STATE_CONNECTING;
-  connectionStartTime = millis();
+  if (!startNextProfileAttempt()) {
+    Serial.println("[ROAM] Failed to start initial profile attempt. Booting to SoftAP mode...");
+    startSoftAP();
+  }
 }
 
 void checkNetworkStatus() {
@@ -138,10 +223,17 @@ void checkNetworkStatus() {
       startWebServer();
     } 
     else if (millis() - connectionStartTime > CONNECTION_TIMEOUT) {
-      Serial.println("\n>>> Connection Timeout! Falling back to SoftAP Mode... <<<");
-      drawNetworkStatus("FALLBACK", "None", "0.0.0.0", "Timeout Error!");
-      delay(1000); 
+      Serial.print("[ROAM] Timeout on SSID: ");
+      Serial.println(WiFi.SSID());
       WiFi.disconnect();
+
+      if (startNextProfileAttempt()) {
+        return;
+      }
+
+      Serial.println("\n>>> All profile attempts exhausted. Falling back to SoftAP Mode... <<<");
+      drawNetworkStatus("FALLBACK", "None", "0.0.0.0", "No Profile Linked");
+      delay(1000); 
       startSoftAP();
     }
   }

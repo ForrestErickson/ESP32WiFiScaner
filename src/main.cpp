@@ -8,7 +8,8 @@
 // --- SEMANTIC VERSIONING ---
 #define VERSION_MAJOR 0
 #define VERSION_MINOR 0
-#define VERSION_PATCH 13 // LED behavior update: STA 100/900 blink, SoftAP 500/500 blink
+#define VERSION_PATCH 14 // Multi-profile sequential retry before SoftAP fallback
+
 
 #define LED_BUILTIN 2
 #define SCAN_BUTTON GPIO_NUM_35 
