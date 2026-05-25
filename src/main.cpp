@@ -8,7 +8,7 @@
 // --- SEMANTIC VERSIONING ---
 #define VERSION_MAJOR 0
 #define VERSION_MINOR 0
-#define VERSION_PATCH 12 // Upgraded to 4-Profile Signal Roaming Matrix System with Screen Diagnostics
+#define VERSION_PATCH 13 // LED behavior update: STA 100/900 blink, SoftAP 500/500 blink
 
 #define LED_BUILTIN 2
 #define SCAN_BUTTON GPIO_NUM_35 
@@ -55,7 +55,7 @@ void loop() {
   unsigned long currentMillis = millis();
   
   if (currentNetState == STATE_CONNECTED) {
-    ledOnTime = 1000; ledOffTime = 0;   
+    ledOnTime = 100;  ledOffTime = 900; 
   } else if (currentNetState == STATE_CONNECTING) {
     ledOnTime = 100;  ledOffTime = 100; 
   } else if (currentNetState == STATE_AP_MODE) {
