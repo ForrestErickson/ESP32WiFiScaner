@@ -4,8 +4,9 @@
 #include <Arduino.h>
 #include "WiFi.h"
 #include <ESPAsyncWebServer.h>
-#include "ConfigManager.h"
+#include "ConfigManager.h" // Links the MAX_WIFI_PROFILES configuration constant
 
+// --- BRANDING CONFIGURATION ---
 #define COMPANY_NAME "Amused_Scientist"
 
 enum NetworkState {
@@ -15,6 +16,7 @@ enum NetworkState {
   STATE_AP_MODE
 };
 
+// Global visibility allocations
 extern NetworkState currentNetState;
 extern AsyncWebServer server;
 
@@ -25,4 +27,5 @@ void startSoftAP();
 void startWebServer();
 String getEncryptionName(wifi_auth_mode_t authMode);
 
-#endif
+#endif // MY_NET_UTILS_H
+  

@@ -5,7 +5,7 @@
 const char* CONFIG_FILE = "/config.json";
 
 bool initStorage() {
-  if (!LittleFS.begin(true)) { // true allows formatting the partition if it's corrupted
+  if (!LittleFS.begin(true)) {
     Serial.println("Error: LittleFS mount failed!");
     return false;
   }
@@ -34,10 +34,16 @@ bool loadConfig(WifiConfig &config) {
     return false;
   }
 
-  config.ssid = doc["ssid"] | "";
-  config.password = doc["password"] | "";
+  JsonArray array = doc["profiles"].as<JsonArray>();
+  int i = 0;
+  for (JsonObject obj : array) {
+    if (i >= MAX_WIFI_PROFILES) break;
+    config.profiles[i].ssid = obj["ssid"] | "";
+    config.profiles[i].password = obj["password"] | "";
+    i++;
+  }
   
-  Serial.println("Configuration loaded from flash storage.");
+  Serial.println("Configuration profiles loaded from flash storage.");
   return true;
 }
 
@@ -49,8 +55,15 @@ bool saveConfig(const WifiConfig &config) {
   }
 
   JsonDocument doc;
-  doc["ssid"] = config.ssid;
-  doc["password"] = config.password;
+  JsonArray array = doc["profiles"].to<JsonArray>();
+
+  for (int i = 0; i < MAX_WIFI_PROFILES; i++) {
+    if (config.profiles[i].ssid != "") {
+      JsonObject obj = array.add<JsonObject>();
+      obj["ssid"] = config.profiles[i].ssid;
+      obj["password"] = config.profiles[i].password;
+    }
+  }
 
   if (serializeJson(doc, configFile) == 0) {
     Serial.println("Failed to write config data to file.");

@@ -3,10 +3,15 @@
 
 #include <Arduino.h>
 
-// Struct to hold active configuration data
-struct WifiConfig {
+#define MAX_WIFI_PROFILES 4
+
+struct WifiProfile {
   String ssid = "";
   String password = "";
+};
+
+struct WifiConfig {
+  WifiProfile profiles[MAX_WIFI_PROFILES];
 };
 
 // Configuration management functions
@@ -15,4 +20,4 @@ bool loadConfig(WifiConfig &config);
 bool saveConfig(const WifiConfig &config);
 bool clearConfig();
 
-#endif
+#endif // CONFIG_MANAGER_H

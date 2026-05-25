@@ -1,6 +1,6 @@
 #include "MyNetUtils.h"
 #include <ElegantOTA.h>
-#include "DisplayManager.h" // Includes the OLED drawing commands
+#include "DisplayManager.h"
 
 NetworkState currentNetState = STATE_IDLE;
 unsigned long connectionStartTime = 0;
@@ -43,7 +43,7 @@ const char index_html[] PROGMEM = R"rawliteral(
 </head>
 <body>
   <div class="container">
-    <h2>WiFi Configuration</h2>
+    <h2>WiFi Configuration Matrix</h2>
     <button id="scan-btn" onclick="scanNetworks()">Scan for Networks</button>
     <div id="networks" class="network-list"><p style="text-align:center;color:#666;">No scan performed yet.</p></div>
     <form action="/save" method="POST">
@@ -51,7 +51,7 @@ const char index_html[] PROGMEM = R"rawliteral(
       <input type="text" id="ssid" name="ssid" placeholder="Select or type SSID" required>
       <label for="password">Password:</label>
       <input type="password" id="password" name="password" placeholder="Enter WiFi Password">
-      <input type="submit" value="Save and Connect">
+      <input type="submit" value="Add to Stored Profiles">
     </form>
   </div>
 </body>
@@ -59,24 +59,69 @@ const char index_html[] PROGMEM = R"rawliteral(
 )rawliteral";
 
 void initNetwork(const WifiConfig &config) {
-  if (config.ssid == "") {
-    Serial.println("No saved credentials found. Booting directly into Access Point mode...");
+  bool profilesExist = false;
+  for (int i = 0; i < MAX_WIFI_PROFILES; i++) {
+    if (config.profiles[i].ssid != "") {
+      profilesExist = true;
+      break;
+    }
+  }
+
+  if (!profilesExist) {
+    Serial.println("No saved configurations found. Booting to Access Point mode...");
     startSoftAP();
     return;
   }
 
-  Serial.println(">>> Initializing Station Mode connection... <<<");
-  Serial.print("Target Saved SSID: ");
-  Serial.println(config.ssid);
-  
-  // Clear the screen and show connection attempt details on the OLED
-  drawNetworkStatus("STATION", config.ssid, "0.0.0.0", "Connecting...");
+  Serial.println(">>> Scanning environment for stored profiles... <<<");
+  drawNetworkStatus("ROAMING", "All Stored", "0.0.0.0", "Scanning Matrix...");
 
   WiFi.mode(WIFI_STA);
-  delay(500); 
-  WiFi.begin(config.ssid.c_str(), config.password.c_str());
+  delay(100);
+  int n = WiFi.scanNetworks(false, false, false, 300);
   
-   currentNetState = STATE_CONNECTING;
+  int bestProfileIndex = -1;
+  int strongestRSSI = -200; 
+
+  for (int i = 0; i < n; ++i) {
+    String scannedSSID = WiFi.SSID(i);
+    int scannedRSSI = WiFi.RSSI(i);
+
+    for (int j = 0; j < MAX_WIFI_PROFILES; j++) {
+      if (config.profiles[j].ssid == scannedSSID) {
+        if (scannedRSSI > strongestRSSI) {
+          strongestRSSI = scannedRSSI;
+          bestProfileIndex = j;
+        }
+      }
+    }
+  }
+  WiFi.scanDelete();
+
+  if (bestProfileIndex == -1) {
+    Serial.println("Stored SSIDs are not currently visible. Defaulting to first active profile slot...");
+    for (int j = 0; j < MAX_WIFI_PROFILES; j++) {
+      if (config.profiles[j].ssid != "") {
+        bestProfileIndex = j;
+        break;
+      }
+    }
+  }
+
+  String targetSSID = config.profiles[bestProfileIndex].ssid;
+  String targetPass = config.profiles[bestProfileIndex].password;
+
+  Serial.print(">>> Connecting to Strongest Target Profile: ");
+  Serial.print(targetSSID);
+  Serial.print(" ("); Serial.print(strongestRSSI == -200 ? "Offline" : String(strongestRSSI) + " dBm");
+  Serial.println(") <<<");
+  
+  drawNetworkStatus("STATION_INIT", targetSSID, "0.0.0.0", "Handshaking...");
+
+  delay(500); 
+  WiFi.begin(targetSSID.c_str(), targetPass.c_str());
+  
+  currentNetState = STATE_CONNECTING;
   connectionStartTime = millis();
 }
 
@@ -85,24 +130,17 @@ void checkNetworkStatus() {
     if (WiFi.status() == WL_CONNECTED) {
       currentNetState = STATE_CONNECTED;
       Serial.println("\n>>> SUCCESS: Connected as a Station! <<<");
-      Serial.print("SSID Connected: ");
-      Serial.println(WiFi.SSID());
-      Serial.print("IP Address allocated: ");
-      Serial.println(WiFi.localIP());
+      Serial.print("SSID Connected: "); Serial.println(WiFi.SSID());
+      Serial.print("IP Address allocated: "); Serial.println(WiFi.localIP());
       Serial.println("========================================\n");
       
-      // Update screen to reflect active, verified local network configurations
       drawNetworkStatus("STATION", WiFi.SSID(), WiFi.localIP().toString(), "Connected!");
-
       startWebServer();
     } 
     else if (millis() - connectionStartTime > CONNECTION_TIMEOUT) {
       Serial.println("\n>>> Connection Timeout! Falling back to SoftAP Mode... <<<");
-      
-      // Show failure warning on screen before spawning local broadcast node
       drawNetworkStatus("FALLBACK", "None", "0.0.0.0", "Timeout Error!");
       delay(1000); 
-
       WiFi.disconnect();
       startSoftAP();
     }
@@ -123,9 +161,7 @@ void startSoftAP() {
     Serial.print("IP Address: "); Serial.println(WiFi.softAPIP());
     Serial.println("========================================");
     
-    // Display the specific hotspot setup info on your physical hardware screen
     drawNetworkStatus("ACCESS POINT", uniqueSSID, WiFi.softAPIP().toString(), "Portal Active");
-
     startWebServer();
   } else {
     Serial.println("Error: SoftAP Hotspot initialization failed!");
@@ -139,11 +175,8 @@ void startWebServer() {
 
   server.on("/scan", HTTP_GET, [](AsyncWebServerRequest *request){
     int n = WiFi.scanComplete();
-    
     if (n == WIFI_SCAN_FAILED || n == WIFI_SCAN_RUNNING) {
-      if (n == WIFI_SCAN_FAILED) {
-        WiFi.scanNetworks(true); 
-      }
+      if (n == WIFI_SCAN_FAILED) WiFi.scanNetworks(true); 
       request->send(200, "text/plain", "<p style='text-align:center;color:#666;'>Scanning in progress... Click again in 2 seconds.</p>");
       return;
     }
@@ -155,30 +188,55 @@ void startWebServer() {
       response += "<div class='network-item' onclick=\"selectSSID('" + ssid + "')\">";
       response += ssid + " (" + String(rssi) + " dBm)</div>";
     }
-    
     WiFi.scanDelete();
     request->send(200, "text/html", response);
   });
 
   server.on("/save", HTTP_POST, [](AsyncWebServerRequest *request){
-    WifiConfig newConfig;
-    if (request->hasParam("ssid", true)) {
-      newConfig.ssid = request->getParam("ssid", true)->value();
-    }
-    if (request->hasParam("password", true)) {
-      newConfig.password = request->getParam("password", true)->value();
+    WifiConfig activeConfig;
+    loadConfig(activeConfig);
+
+    String incomingSSID = "";
+    String incomingPass = "";
+
+    if (request->hasParam("ssid", true)) incomingSSID = request->getParam("ssid", true)->value();
+    if (request->hasParam("password", true)) incomingPass = request->getParam("password", true)->value();
+
+    bool updated = false;
+    for (int i = 0; i < MAX_WIFI_PROFILES; i++) {
+      if (activeConfig.profiles[i].ssid == incomingSSID) {
+        activeConfig.profiles[i].password = incomingPass;
+        updated = true;
+        break;
+      }
     }
 
-    Serial.println("\n============================= Web Portal Form Event =============================");
-    Serial.print("Web UI Event: SSID selected -> '");
-    Serial.print(newConfig.ssid);
-    Serial.println("'");
-    Serial.println("================================================================================");
+    if (!updated) {
+      for (int i = 0; i < MAX_WIFI_PROFILES; i++) {
+        if (activeConfig.profiles[i].ssid == "") {
+          activeConfig.profiles[i].ssid = incomingSSID;
+          activeConfig.profiles[i].password = incomingPass;
+          updated = true;
+          break;
+        }
+      }
+    }
 
-    request->send(200, "text/html", "<h3>Settings Saved! ESP32 is now restarting...</h3>");
-    
+    if (!updated) {
+      Serial.println("Profile Matrix Full. Overwriting slot 0 profile...");
+      activeConfig.profiles[0].ssid = incomingSSID; 
+      activeConfig.profiles[0].password = incomingPass; 
+    }
+
+    Serial.println("\n============================= Profile Storage Event =============================");
+    Serial.print("Saved profile -> '"); Serial.print(incomingSSID); Serial.println("'");
+    Serial.println("================================================================================\n");
+
+    drawNetworkStatus("DATABASE", incomingSSID, "0.0.0.0", "Saving Profile...");
+
+    request->send(200, "text/html", "<h3>Profile Saved Successfully! Restarting to scan matrix profiles...</h3>");
     delay(500); 
-    saveConfig(newConfig);
+    saveConfig(activeConfig);
     ESP.restart();
   });
 

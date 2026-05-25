@@ -3,12 +3,12 @@
 #include "Splash.h"
 #include "MyNetUtils.h"
 #include "ConfigManager.h"
-#include "DisplayManager.h" // Include the new display engine
+#include "DisplayManager.h" 
 
 // --- SEMANTIC VERSIONING ---
 #define VERSION_MAJOR 0
 #define VERSION_MINOR 0
-#define VERSION_PATCH 11 // Upgraded for Adafruit SSD1306 OLED integration
+#define VERSION_PATCH 12 // Upgraded to 4-Profile Signal Roaming Matrix System with Screen Diagnostics
 
 #define LED_BUILTIN 2
 #define SCAN_BUTTON GPIO_NUM_35 
@@ -35,11 +35,10 @@ void setup() {
 
   printSplash(VERSION_MAJOR, VERSION_MINOR, VERSION_PATCH);
 
-  // Initialize the OLED screen hardware receiver instantly on boot
   if (initDisplay()) {
     String verStr = String(VERSION_MAJOR) + "." + String(VERSION_MINOR) + "." + String(VERSION_PATCH);
     showBootSplash(verStr);
-    delay(2000); // Let the boot splash linger for 2 seconds
+    delay(2000); 
   }
 
   if (initStorage()) {
@@ -92,7 +91,6 @@ void loop() {
     processFactoryReset = false;
     delay(10); 
 
-    // Update screen to inform user of wipe action before dropping connection
     drawNetworkStatus("FACTORY RESET", "Wiping...", "0.0.0.0", "Restarting...");
     
     Serial.println("\nButton override triggered! Erasing flash configuration and restarting chip...");
