@@ -10,6 +10,7 @@
 #define VERSION_MINOR 0
 #define VERSION_PATCH 14 // Multi-profile sequential retry before SoftAP fallback
 
+
 #define LED_BUILTIN 2
 #define SCAN_BUTTON GPIO_NUM_35 
 
