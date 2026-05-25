@@ -49,4 +49,14 @@ Button pressed! Starting async scan...
 4: JimandJess1990 [Ch: 1] (-92 dBm) - WPA2/WPA3
 
 ```
+## Hardware Profile
+
+<img width="1002" height="490" alt="image" src="https://github.com/user-attachments/assets/61caa300-c68c-4d90-a1e8-0daec3356591" />
+
+#define LED6 GPIO23
+#define LED5 GPIO19
+#define LED4 GPIO18
+#define LED3 GPIO5
+#define LED2 GPIO4
+#define LED1 GPIO15
 
